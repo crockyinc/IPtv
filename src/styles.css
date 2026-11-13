@@ -1,0 +1,230 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+    --yt-bg: #0f0f0f;
+    --yt-raised: #212121;
+    --yt-chip: #272727;
+    --sidebar-w: 240px;
+    --rail-w: 72px;
+  }
+
+  * {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    background-color: var(--yt-bg);
+  }
+
+  body {
+    margin: 0;
+    background-color: var(--yt-bg);
+    color: #f1f1f1;
+    font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* Sidebar scroll position should not be lost when the layout toggles. */
+  body {
+    scrollbar-color: #4d4d4d transparent;
+  }
+
+  ::selection {
+    background: rgba(255, 0, 0, 0.35);
+    color: #fff;
+  }
+
+  /* Slim, YouTube-like scrollbars */
+  *::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  *::-webkit-scrollbar-thumb {
+    background: #3f3f3f;
+    border-radius: 9999px;
+  }
+
+  *::-webkit-scrollbar-thumb:hover {
+    background: #606060;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #3f3f3f transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid #3ea6ff;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer components {
+  /* ---------------------------------------------------------------- buttons */
+  .btn-icon {
+    @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-yt-text transition-colors duration-150 hover:bg-white/10 active:bg-white/15;
+  }
+
+  .btn-pill {
+    @apply inline-flex items-center gap-1.5 rounded-full bg-yt-chip px-3.5 py-1.5 text-sm font-medium text-yt-text transition-colors duration-150 hover:bg-yt-chipHover;
+  }
+
+  .chip {
+    @apply shrink-0 select-none rounded-lg bg-yt-chip px-3 py-1.5 text-sm font-medium text-yt-text transition-colors duration-150 hover:bg-yt-chipHover;
+  }
+
+  .chip-active {
+    @apply bg-yt-text text-yt-bg hover:bg-white;
+  }
+
+  .nav-item {
+    @apply flex items-center gap-5 rounded-lg px-3 py-2 text-sm text-yt-text transition-colors duration-150 hover:bg-white/10;
+  }
+
+  .nav-item-active {
+    @apply bg-white/10 font-medium;
+  }
+
+  /* ----------------------------------------------------------------- cards */
+  .channel-card {
+    @apply block cursor-pointer rounded-xl outline-none transition-transform duration-200 ease-out;
+  }
+
+  .channel-card:hover .channel-card__thumb {
+    @apply scale-[1.02];
+  }
+
+  .channel-card__thumb {
+    @apply relative flex aspect-video w-full items-center justify-center overflow-hidden rounded-xl bg-[#1a1a1a] transition-transform duration-300 ease-out;
+  }
+
+  .channel-card:focus-visible .channel-card__thumb {
+    box-shadow: 0 0 0 2px #3ea6ff;
+  }
+
+  .logo-frame {
+    @apply flex items-center justify-center rounded-lg bg-white/[0.04] p-3 ring-1 ring-inset ring-white/5;
+  }
+
+  /* --------------------------------------------------------------- overlays */
+  .modal-backdrop {
+    @apply fixed inset-0 z-modal flex items-end justify-center bg-black/80 p-0 backdrop-blur-md sm:items-center sm:p-6;
+  }
+
+  .modal-panel {
+    @apply flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-2xl border border-white/10 bg-[#181818] shadow-pop sm:max-w-3xl sm:rounded-2xl;
+  }
+
+  .scroll-fade-x {
+    mask-image: linear-gradient(to right, transparent, black 8px, black calc(100% - 8px), transparent);
+  }
+
+  .skeleton {
+    @apply relative overflow-hidden bg-white/[0.06];
+  }
+
+  .skeleton::after {
+    content: '';
+    @apply absolute inset-0 -translate-x-full animate-shimmer bg-gradient-to-r from-transparent via-white/[0.07] to-transparent;
+  }
+
+  .divider {
+    @apply my-3 border-t border-white/10;
+  }
+
+  .text-shadow-live {
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+  }
+
+  /* ---------------------------------------------------------------- player */
+  .player-shell {
+    @apply relative aspect-video w-full overflow-hidden bg-black;
+  }
+
+  .player-shell:fullscreen {
+    aspect-ratio: auto;
+    height: 100%;
+  }
+
+  .player-controls {
+    background: linear-gradient(to top, rgba(0, 0, 0, 0.88) 0%, rgba(0, 0, 0, 0.55) 45%, transparent 100%);
+  }
+
+  .volume-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 3px;
+    border-radius: 9999px;
+    background: rgba(255, 255, 255, 0.35);
+    cursor: pointer;
+  }
+
+  .volume-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    height: 12px;
+    width: 12px;
+    border-radius: 9999px;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+  }
+
+  .volume-slider::-moz-range-thumb {
+    height: 12px;
+    width: 12px;
+    border: 0;
+    border-radius: 9999px;
+    background: #fff;
+  }
+
+  .volume-slider:focus-visible {
+    outline: 2px solid #3ea6ff;
+    outline-offset: 6px;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@layer utilities {
+  .content-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: 0 220px;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+}
