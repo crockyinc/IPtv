@@ -89,6 +89,7 @@ src/
     TopBar.tsx  Sidebar.tsx  CategoryChips.tsx  CountryPickerModal.tsx
     ChannelCard.tsx  ChannelGrid.tsx  ChannelLogo.tsx  BrandLogo.tsx
     Feedback.tsx            Toast, empty and error states
+    ErrorBoundary.tsx       Recoverable render-error card
     watch/VideoPlayer.tsx   Custom HLS player UI
     watch/ChannelInfoBar.tsx  watch/UpNextList.tsx
   pages/
@@ -98,6 +99,9 @@ src/
     storage.ts              Safe localStorage helpers
 scripts/
   verify-pipeline.ts        Node smoke test for the join/filter rules
+  verify-render.tsx         jsdom test that mounts the real pages
+  jsdom-setup.ts            Browser shims used by the render test
+.env.example                Optional mirror of the iptv-org JSON
 ```
 
 ---
