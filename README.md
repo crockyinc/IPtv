@@ -149,8 +149,9 @@ DNS/proxy block, CORS, HTTP error, timeout — the six documents are instead rea
 `public/fallback/`, the exact same pipeline runs, and the catalogue is tagged `source: 'fallback'`.
 The UI then shows an amber "Offline snapshot" banner with the failure reason and a **Retry live
 data** button; the footer and country picker label the data source too. Nothing is faked: the
-snapshot is a trimmed export of the real iptv-org database (30 countries, 50 channels each, one logo
-and up to three HLS sources per channel, ~835 KB).
+snapshot is a proportionate slice of the real iptv-org database — the 30 busiest countries
+(US 137, India 64, Russia 38, … at least 24 each), one logo and up to three HLS sources per channel,
+roughly 510 KB in total.
 
 Regenerate it at any time (needs the two upstream archives, both fetched from codeload.github.com):
 
@@ -158,8 +159,8 @@ Regenerate it at any time (needs the two upstream archives, both fetched from co
 curl -L -o db.tgz   https://codeload.github.com/iptv-org/database/tar.gz/refs/heads/master
 curl -L -o iptv.tgz https://codeload.github.com/iptv-org/iptv/tar.gz/refs/heads/master
 tar -xzf db.tgz -C /tmp && tar -xzf iptv.tgz -C /tmp
-npm run snapshot -- --database /tmp/database-master/data --streams /tmp/iptv-master/streams \
-                  --countries 30 --per-country 50
+npm run snapshot -- --database /tmp/database-master/data --streams /tmp/iptv-master/streams
+# optional: --countries 30 --divisor 12 --max-per-country 150 --min-per-country 24
 ```
 
 ---

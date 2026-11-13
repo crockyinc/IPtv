@@ -14,9 +14,11 @@
  *
  * Usage:
  *   node scripts/build-fallback-snapshot.mjs \
- *     --database ../tmp/database-master/data \
- *     --streams  ../tmp/iptv-master/streams \
- *     --countries 30 --per-country 50
+ *     --database /tmp/database-master/data \
+ *     --streams  /tmp/iptv-master/streams
+ *
+ * Each country keeps a slice proportional to its real channel count, so the
+ * picker's "most channels" ordering still reflects upstream popularity.
  */
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
@@ -33,8 +35,11 @@ const DATABASE_DIR = resolve(flag('database', '../database-master/data'));
 const STREAMS_DIR = resolve(flag('streams', '../iptv-master/streams'));
 const OUT_DIR = resolve(flag('out', 'public/fallback'));
 const COUNTRY_LIMIT = Number(flag('countries', '30'));
-const PER_COUNTRY_LIMIT = Number(flag('per-country', '50'));
 const STREAMS_PER_CHANNEL = Number(flag('streams-per-channel', '3'));
+/** kept = clamp(round(realChannels / DIVISOR), MIN_PER_COUNTRY, MAX_PER_COUNTRY) */
+const COUNTRY_DIVISOR = Number(flag('divisor', '12'));
+const MAX_PER_COUNTRY = Number(flag('max-per-country', '150'));
+const MIN_PER_COUNTRY = Number(flag('min-per-country', '24'));
 
 /* ------------------------------ CSV parsing ------------------------------ */
 
@@ -222,7 +227,12 @@ const selectedLogos = [];
 for (const [, rows] of rankedCountries) {
   rows.sort((a, b) => a.name.localeCompare(b.name, 'en'));
 
-  for (const row of rows.slice(0, PER_COUNTRY_LIMIT)) {
+  const keep = Math.min(
+    MAX_PER_COUNTRY,
+    Math.max(MIN_PER_COUNTRY, Math.round(rows.length / COUNTRY_DIVISOR)),
+  );
+
+  for (const row of rows.slice(0, keep)) {
     selectedChannels.push({
       id: row.id,
       name: row.name,
