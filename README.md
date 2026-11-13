@@ -23,6 +23,7 @@ There is **no backend, no build-time data snapshot, no API key and no tracking**
 | Player | hls.js with native Safari fallback, play/pause, mute + volume slider, adaptive quality menu, PiP, fullscreen, LIVE indicator with jump-to-live, keyboard shortcuts, 8s failover watchdog. |
 | Resilience | Primary stream → automatic backup failover → clean "offline / geo-restricted" overlay with Retry and "Try next channel". Broken logos fall back to stylised initials on a gradient. |
 | Offline shell | `public/sw.js` precaches the app shell and stale-while-revalidate caches the iptv-org JSON. Video segments are never intercepted. |
+| Degraded mode | If the live API cannot be reached at all (restricted network, offline, corporate firewall), AnyStream falls back to a bundled snapshot of real iptv-org data and says so in a banner. Retry once the network allows it. |
 | Persistence | Country, sidebar state, watch history, volume/mute — all in `localStorage`, all optional. |
 
 ---
@@ -46,7 +47,9 @@ npm run dev        # http://localhost:5173
 npm run build      # typecheck + production build into dist/
 npm run preview    # serve the production build
 npm run verify:pipeline   # 28-assertion smoke test of the data pipeline
-npm run verify:render     # 27-assertion jsdom render test of the real pages
+npm run verify:render     # 31-assertion jsdom render test of the real pages
+npm run verify:fallback   # 15-assertion test of live -> offline-snapshot handling
+npm run snapshot          # regenerate public/fallback/*.json from upstream data
 ```
 
 Optional: point the app at a self-hosted mirror of the JSON documents (defaults to
@@ -65,6 +68,7 @@ VITE_IPTV_API_BASE=https://my-mirror.example.com/api
 index.html                  Document shell, theme bootstrap, manifest links
 public/
   sw.js                     Service worker: app shell + iptv-org JSON caching
+  fallback/*.json           Offline snapshot (same shape as the public API)
   favicon.svg               Brand mark
   manifest.webmanifest      PWA manifest
   icons/                    Install icons (192/512/maskable)
@@ -98,8 +102,10 @@ src/
     utils.ts                Flags, initials, gradients, clipboard, debounce
     storage.ts              Safe localStorage helpers
 scripts/
+  build-fallback-snapshot.mjs  Regenerates public/fallback from upstream CSV/M3U
   verify-pipeline.ts        Node smoke test for the join/filter rules
   verify-render.tsx         jsdom test that mounts the real pages
+  verify-fallback.ts        Live -> snapshot fallback test with a stubbed network
   jsdom-setup.ts            Browser shims used by the render test
 .env.example                Optional mirror of the iptv-org JSON
 ```
@@ -135,6 +141,26 @@ Then, in one synchronous pass (`buildCatalog`):
 Parsing/joining happens a single time per session; the resulting `Catalog` (Maps keyed by id and by
 country) is kept in memory and shared across route changes. Only the JSON documents are also cached
 by the service worker.
+
+### Offline snapshot (degraded mode)
+
+`loadCatalog()` gives the live API a hard 20-second budget. If any required document fails — offline,
+DNS/proxy block, CORS, HTTP error, timeout — the six documents are instead read from
+`public/fallback/`, the exact same pipeline runs, and the catalogue is tagged `source: 'fallback'`.
+The UI then shows an amber "Offline snapshot" banner with the failure reason and a **Retry live
+data** button; the footer and country picker label the data source too. Nothing is faked: the
+snapshot is a trimmed export of the real iptv-org database (30 countries, 50 channels each, one logo
+and up to three HLS sources per channel, ~835 KB).
+
+Regenerate it at any time (needs the two upstream archives, both fetched from codeload.github.com):
+
+```bash
+curl -L -o db.tgz   https://codeload.github.com/iptv-org/database/tar.gz/refs/heads/master
+curl -L -o iptv.tgz https://codeload.github.com/iptv-org/iptv/tar.gz/refs/heads/master
+tar -xzf db.tgz -C /tmp && tar -xzf iptv.tgz -C /tmp
+npm run snapshot -- --database /tmp/database-master/data --streams /tmp/iptv-master/streams \
+                  --countries 30 --per-country 50
+```
 
 ---
 
@@ -174,6 +200,9 @@ Any static host works. Because routing uses the History API, configure a single-
 - **Vercel** — framework preset "Vite", rewrites `{ "source": "/(.*)", "destination": "/index.html" }`
 - **GitHub Pages** — copy `dist/index.html` to `dist/404.html`, or deploy with an action that does.
 - **Nginx** — `try_files $uri $uri/ /index.html;`
+
+Ship the whole `dist/` folder: it contains `/fallback/*.json`, which is what keeps the app useful
+when the public API is blocked from the visitor's network.
 
 Serve over **HTTPS**: browsers block HTTP HLS manifests on secure pages, and the clipboard,
 fullscreen and picture-in-picture APIs require a secure context.

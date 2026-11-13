@@ -146,7 +146,14 @@ export interface CategoryOption {
   channelCount: number;
 }
 
+/** Where the assembled catalogue came from. */
+export type CatalogSource = 'live' | 'fallback';
+
 export interface Catalog {
+  /** `live` = fetched from iptv-org; `fallback` = bundled offline snapshot. */
+  source: CatalogSource;
+  /** Why the live catalogue could not be used (null when live). */
+  liveError: string | null;
   /** Every playable channel, sorted by name. */
   channels: Channel[];
   channelById: Map<string, Channel>;

@@ -16,6 +16,7 @@
 import type {
   BlocklistEntry,
   Catalog,
+  CatalogSource,
   CategoryOption,
   Channel,
   ChannelLogo,
@@ -39,6 +40,22 @@ import { flagEmoji } from '@/lib/utils';
 const API_BASE = (
   import.meta.env?.VITE_IPTV_API_BASE ?? 'https://iptv-org.github.io/api'
 ).replace(/\/+$/, '');
+
+/**
+ * Same-origin offline snapshot (see scripts/build-fallback-snapshot.mjs). Used
+ * only when the live API cannot be reached at all, so locked-down networks and
+ * offline demos still get a browsable catalogue.
+ */
+export const FALLBACK_BASE = `${import.meta.env?.BASE_URL ?? '/'}fallback`.replace(/\/+$/, '');
+
+export const FALLBACK_ENDPOINTS = {
+  countries: `${FALLBACK_BASE}/countries.json`,
+  channels: `${FALLBACK_BASE}/channels.json`,
+  streams: `${FALLBACK_BASE}/streams.json`,
+  logos: `${FALLBACK_BASE}/logos.json`,
+  categories: `${FALLBACK_BASE}/categories.json`,
+  blocklist: `${FALLBACK_BASE}/blocklist.json`,
+} as const;
 
 export const ENDPOINTS = {
   countries: `${API_BASE}/countries.json`,
@@ -71,12 +88,17 @@ const inflight = new Map<string, Promise<unknown>>();
 let catalogCache: Catalog | null = null;
 let catalogPromise: Promise<Catalog> | null = null;
 
-const FETCH_TIMEOUT_MS = 25_000;
-const FETCH_RETRIES = 2;
+const FETCH_TIMEOUT_MS = 12_000;
+const FETCH_RETRIES = 1;
+/** Total time allowed for the live catalogue before the snapshot takes over. */
+const LIVE_BUDGET_MS = 20_000;
 
-async function fetchJsonOnce<T>(url: string): Promise<T> {
+async function fetchJsonOnce<T>(url: string, signal?: AbortSignal): Promise<T> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener('abort', forwardAbort, { once: true });
+  if (signal?.aborted) controller.abort();
 
   try {
     const response = await fetch(url, {
@@ -94,11 +116,12 @@ async function fetchJsonOnce<T>(url: string): Promise<T> {
     return (await response.json()) as T;
   } finally {
     clearTimeout(timer);
+    signal?.removeEventListener('abort', forwardAbort);
   }
 }
 
 /** Fetch + parse JSON with in-memory caching, request de-duplication and retries. */
-async function fetchJson<T>(url: string): Promise<T> {
+async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<T> {
   if (jsonCache.has(url)) return jsonCache.get(url) as T;
 
   const pending = inflight.get(url);
@@ -109,16 +132,17 @@ async function fetchJson<T>(url: string): Promise<T> {
 
     for (let attempt = 0; attempt <= FETCH_RETRIES; attempt += 1) {
       try {
-        const data = await fetchJsonOnce<T>(url);
+        const data = await fetchJsonOnce<T>(url, signal);
         jsonCache.set(url, data);
         return data;
       } catch (error) {
         lastError = error;
+        if (signal?.aborted) break;
         if (error instanceof IptvApiError && error.message.includes('HTTP 4')) {
           // Client errors will not succeed on retry.
           break;
         }
-        // Linear backoff: 400ms, 800ms.
+        // Linear backoff: 400ms.
         await new Promise((resolve) => setTimeout(resolve, 400 * (attempt + 1)));
       }
     }
@@ -325,7 +349,11 @@ function asArray<T>(value: unknown): T[] {
  * Builds the normalized catalog. Exported for testability and so the shape of
  * the pipeline is explicit: streams -> channels -> countries/categories.
  */
-export function buildCatalog(raw: RawBundle, fetchMs = 0): Catalog {
+export function buildCatalog(
+  raw: RawBundle,
+  fetchMs = 0,
+  meta: { source?: CatalogSource; liveError?: string | null } = {},
+): Catalog {
   const countries = asArray<RawCountry>(raw.countries);
   const rawChannels = asArray<RawChannel>(raw.channels);
   const rawStreams = asArray<RawStream>(raw.streams);
@@ -497,6 +525,8 @@ export function buildCatalog(raw: RawBundle, fetchMs = 0): Catalog {
   for (const country of countriesOut) countryByCode.set(country.code, country);
 
   const catalog: Catalog = {
+    source: meta.source ?? 'live',
+    liveError: meta.liveError ?? null,
     channels,
     channelById,
     channelsByCountry,
@@ -529,9 +559,61 @@ export function getCachedCatalog(): Catalog | null {
   return catalogCache;
 }
 
+interface RawBundleEndpoints {
+  countries: string;
+  channels: string;
+  streams: string;
+  logos: string;
+  categories: string;
+  blocklist: string;
+}
+
 /**
- * Concurrently loads every upstream document and assembles the catalog.
- * Concurrent callers share one promise; later callers get the cached result.
+ * Fetches the six documents from one source and validates the required ones.
+ * `signal` enforces the overall budget for a source; optional documents degrade
+ * to empty arrays so a single upstream hiccup never blanks the whole feed.
+ */
+async function fetchBundle(
+  endpoints: RawBundleEndpoints,
+  signal?: AbortSignal,
+): Promise<RawBundle> {
+  const [countries, channels, streams, logos, categories, blocklist] = await Promise.all([
+    fetchJson<RawCountry[]>(endpoints.countries, signal),
+    fetchJson<RawChannel[]>(endpoints.channels, signal),
+    fetchJson<RawStream[]>(endpoints.streams, signal),
+    fetchJson<RawLogo[]>(endpoints.logos, signal).catch(() => [] as RawLogo[]),
+    fetchJson<RawCategory[]>(endpoints.categories, signal).catch(() => [] as RawCategory[]),
+    fetchJson<BlocklistEntry[]>(endpoints.blocklist, signal).catch(() => [] as BlocklistEntry[]),
+  ]);
+
+  if (!Array.isArray(countries) || countries.length === 0) {
+    throw new IptvApiError(endpoints.countries, 'Country list could not be loaded.');
+  }
+  if (!Array.isArray(channels) || channels.length === 0) {
+    throw new IptvApiError(endpoints.channels, 'Channel catalogue could not be loaded.');
+  }
+  if (!Array.isArray(streams) || streams.length === 0) {
+    throw new IptvApiError(endpoints.streams, 'Stream catalogue could not be loaded.');
+  }
+
+  return { countries, channels, streams, logos, categories, blocklist };
+}
+
+function describeFailure(error: unknown): string {
+  if (error instanceof DOMException && error.name === 'AbortError') {
+    return `The live iptv-org API did not answer within ${LIVE_BUDGET_MS / 1000}s.`;
+  }
+  if (error instanceof Error) return error.message;
+  return 'The live iptv-org API is unreachable.';
+}
+
+/**
+ * Loads the catalogue.
+ *
+ * 1. Try the public iptv-org API under a hard time budget.
+ * 2. On any failure (offline, firewall, CORS, HTTP error) fall back to the
+ *    bundled offline snapshot so the app stays browsable, and record why.
+ * 3. Only if both fail does the promise reject.
  */
 export function loadCatalog(): Promise<Catalog> {
   if (catalogCache) return Promise.resolve(catalogCache);
@@ -540,34 +622,37 @@ export function loadCatalog(): Promise<Catalog> {
   const startedAt = performance.now();
 
   catalogPromise = (async () => {
-    // blocklist / logos / categories degrade gracefully so a single upstream
-    // hiccup never blanks the whole feed.
-    const [countries, channels, streams, logos, categories, blocklist] = await Promise.all([
-      fetchJson<RawCountry[]>(ENDPOINTS.countries),
-      fetchJson<RawChannel[]>(ENDPOINTS.channels),
-      fetchJson<RawStream[]>(ENDPOINTS.streams),
-      fetchJson<RawLogo[]>(ENDPOINTS.logos).catch(() => [] as RawLogo[]),
-      fetchJson<RawCategory[]>(ENDPOINTS.categories).catch(() => [] as RawCategory[]),
-      fetchJson<BlocklistEntry[]>(ENDPOINTS.blocklist).catch(() => [] as BlocklistEntry[]),
-    ]);
+    const controller = new AbortController();
+    const budget = setTimeout(() => controller.abort(), LIVE_BUDGET_MS);
 
-    if (!Array.isArray(countries) || countries.length === 0) {
-      throw new IptvApiError(ENDPOINTS.countries, 'Country list could not be loaded.');
-    }
-    if (!Array.isArray(channels) || channels.length === 0) {
-      throw new IptvApiError(ENDPOINTS.channels, 'Channel catalogue could not be loaded.');
-    }
-    if (!Array.isArray(streams) || streams.length === 0) {
-      throw new IptvApiError(ENDPOINTS.streams, 'Stream catalogue could not be loaded.');
-    }
+    try {
+      const bundle = await fetchBundle(ENDPOINTS, controller.signal);
+      const catalog = buildCatalog(bundle, Math.round(performance.now() - startedAt), {
+        source: 'live',
+        liveError: null,
+      });
+      catalogCache = catalog;
+      return catalog;
+    } catch (liveFailure) {
+      const reason = describeFailure(liveFailure);
 
-    const catalog = buildCatalog(
-      { countries, channels, streams, logos, categories, blocklist },
-      Math.round(performance.now() - startedAt),
-    );
-
-    catalogCache = catalog;
-    return catalog;
+      try {
+        const bundle = await fetchBundle(FALLBACK_ENDPOINTS);
+        const catalog = buildCatalog(bundle, Math.round(performance.now() - startedAt), {
+          source: 'fallback',
+          liveError: reason,
+        });
+        catalogCache = catalog;
+        return catalog;
+      } catch {
+        throw new IptvApiError(
+          ENDPOINTS.countries,
+          `${reason} The offline snapshot could not be loaded either.`,
+        );
+      }
+    } finally {
+      clearTimeout(budget);
+    }
   })();
 
   catalogPromise.catch(() => {

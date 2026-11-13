@@ -42,7 +42,8 @@ export function HomePage() {
     [channels, searchQuery, categoryFilter],
   );
 
-  const loading = status === 'loading' || status === 'idle';
+  // A background refresh keeps the previous catalogue on screen.
+  const loading = status === 'idle' || (status === 'loading' && !catalog);
   const heading = searchQuery
     ? `Results for “${searchQuery.trim()}”`
     : activeCategory

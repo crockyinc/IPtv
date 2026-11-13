@@ -19,6 +19,7 @@ import { RecentPage } from '@/pages/RecentPage';
 import { WatchPage } from '@/pages/WatchPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { CountryPickerModal } from '@/components/CountryPickerModal';
+import { DataSourceBanner } from '@/components/DataSourceBanner';
 
 /* ------------------------------- fixtures -------------------------------- */
 
@@ -173,6 +174,22 @@ expect('picker: choosing a country persists it', (() => {
   clickByText('Japan');
   return useAppStore.getState().countryCode === 'JP' && window.localStorage.getItem('anystream_country') === 'JP';
 })());
+
+/* ------------------------------ data source ------------------------------ */
+
+const liveBannerHtml = renderWith(<DataSourceBanner />, '/');
+expect('banner: hidden while live', !liveBannerHtml.includes('Offline snapshot'));
+
+act(() =>
+  useCatalogStore.setState({
+    catalog: { ...catalog, source: 'fallback', liveError: 'Failed to fetch' },
+  }),
+);
+const fallbackBannerHtml = renderWith(<DataSourceBanner />, '/');
+expectIncludes('banner: explains the snapshot', fallbackBannerHtml, 'Offline snapshot');
+expectIncludes('banner: shows the failure reason', fallbackBannerHtml, 'Failed to fetch');
+expectIncludes('banner: offers a live retry', fallbackBannerHtml, 'Retry live data');
+act(() => useCatalogStore.setState({ catalog }));
 
 /* --------------------------------- 404 ----------------------------------- */
 

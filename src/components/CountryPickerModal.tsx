@@ -87,7 +87,7 @@ export function CountryPickerModal() {
     }
   };
 
-  const loading = status === 'loading' || status === 'idle';
+  const loading = status === 'idle' || (status === 'loading' && !catalog);
 
   return (
     <div
@@ -132,6 +132,13 @@ export function CountryPickerModal() {
               </p>
             </div>
           </div>
+
+          {catalog?.source === 'fallback' && (
+            <p className="mt-2.5 rounded-lg border border-amber-300/20 bg-amber-300/[0.06] px-3 py-2 text-[11px] leading-relaxed text-amber-200/90">
+              Offline snapshot: the live iptv-org API is unreachable from this network, so these
+              counts come from the catalogue bundled with the app.
+            </p>
+          )}
 
           {/* Search + sort */}
           <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center">

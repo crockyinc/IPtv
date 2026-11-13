@@ -70,7 +70,7 @@ export function WatchPage() {
   }
 
   if (!channel) {
-    const loading = status === 'loading' || status === 'idle';
+    const loading = status === 'idle' || (status === 'loading' && !catalog);
 
     if (loading) {
       return (

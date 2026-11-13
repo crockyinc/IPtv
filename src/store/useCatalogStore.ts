@@ -21,7 +21,9 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
 
     if (force) {
       clearCatalogCache();
-      set({ status: 'loading', catalog: null, error: null });
+      // Keep the current catalogue on screen while refreshing so the UI never
+      // flashes back to skeletons (or loses the offline snapshot banner).
+      set({ status: 'loading', error: null });
     } else {
       set({ status: 'loading', error: null });
     }
@@ -32,9 +34,10 @@ export const useCatalogStore = create<CatalogState>((set, get) => ({
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Unable to reach the iptv-org API right now.';
+      const previous = get().catalog;
       set({
-        status: 'error',
-        catalog: null,
+        status: previous ? 'ready' : 'error',
+        catalog: previous,
         error: `${message} Check your connection or an ad-blocker / firewall rule that may be blocking iptv-org.github.io.`,
       });
     }

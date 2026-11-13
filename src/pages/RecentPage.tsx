@@ -22,7 +22,7 @@ export function RecentPage() {
     return resolved;
   }, [catalog, recentIds]);
 
-  const loading = status === 'loading' || status === 'idle';
+  const loading = status === 'idle' || (status === 'loading' && !catalog);
 
   return (
     <div>
