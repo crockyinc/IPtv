@@ -490,12 +490,22 @@ export function useHlsPlayer(options: UseHlsPlayerOptions): UseHlsPlayerResult {
     const request = container.requestFullscreen?.bind(container);
     if (request) {
       void request().catch(() => undefined);
-    } else {
-      const webkitContainer = container as HTMLDivElement & {
-        webkitRequestFullscreen?: () => Promise<void>;
-      };
-      void webkitContainer.webkitRequestFullscreen?.().catch(() => undefined);
+      return;
     }
+
+    const webkitContainer = container as HTMLDivElement & {
+      webkitRequestFullscreen?: () => Promise<void>;
+    };
+    if (webkitContainer.webkitRequestFullscreen) {
+      void webkitContainer.webkitRequestFullscreen().catch(() => undefined);
+      return;
+    }
+
+    // iOS Safari only supports fullscreen on the video element itself.
+    const video = videoRef.current as
+      | (HTMLVideoElement & { webkitEnterFullscreen?: () => void })
+      | null;
+    video?.webkitEnterFullscreen?.();
   }, []);
 
   const seekToLiveEdge = useCallback(() => {

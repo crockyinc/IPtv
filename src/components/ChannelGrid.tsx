@@ -17,7 +17,10 @@ interface ChannelGridProps {
 export function ChannelGrid({ channels, loading = false, emptyState, className }: ChannelGridProps) {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const sentinelRef = useRef<HTMLDivElement>(null);
-  const listKey = channels.length > 0 ? `${channels.length}:${channels[0]?.id ?? ''}` : '0';
+  const listKey =
+    channels.length > 0
+      ? `${channels.length}:${channels[0]?.id ?? ''}:${channels[channels.length - 1]?.id ?? ''}`
+      : '0';
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);

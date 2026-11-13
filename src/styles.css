@@ -31,7 +31,9 @@
     background-color: var(--yt-bg);
     color: #f1f1f1;
     font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
-    overflow-x: hidden;
+    /* `clip` (not `hidden`) keeps sticky descendants working while still
+       preventing accidental horizontal scroll. */
+    overflow-x: clip;
   }
 
   /* Sidebar scroll position should not be lost when the layout toggles. */

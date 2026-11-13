@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Baby,
@@ -259,6 +259,19 @@ export function Sidebar() {
   const mobileSidebarOpen = useAppStore((state) => state.mobileSidebarOpen);
   const setMobileSidebarOpen = useAppStore((state) => state.setMobileSidebarOpen);
 
+  useEffect(() => {
+    if (isDesktop || !mobileSidebarOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = previous;
+    };
+  }, [isDesktop, mobileSidebarOpen]);
+
+  useEffect(() => {
+    if (isDesktop && mobileSidebarOpen) setMobileSidebarOpen(false);
+  }, [isDesktop, mobileSidebarOpen, setMobileSidebarOpen]);
+
   if (isDesktop) {
     return (
       <aside
@@ -286,7 +299,7 @@ export function Sidebar() {
       <aside
         className={cn(
           'fixed bottom-0 left-0 top-0 z-sidebar flex w-[280px] max-w-[82vw] flex-col border-r border-white/10 bg-yt-bg shadow-pop transition-transform duration-200 ease-out lg:hidden',
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full',
+          mobileSidebarOpen ? 'visible translate-x-0' : 'invisible -translate-x-full',
         )}
         aria-hidden={!mobileSidebarOpen}
       >

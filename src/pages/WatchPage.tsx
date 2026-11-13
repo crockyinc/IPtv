@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Compass, Tv } from 'lucide-react';
 import type { Channel } from '@/types/iptv';
 import { VideoPlayer } from '@/components/watch/VideoPlayer';
@@ -14,6 +14,7 @@ const UP_NEXT_LIMIT = 14;
 export function WatchPage() {
   const { channelId } = useParams<{ channelId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const { catalog, status, error, retry } = useCatalog();
   const addRecentChannel = useAppStore((state) => state.addRecentChannel);
   const [activeSourceUrl, setActiveSourceUrl] = useState<string | null>(null);
@@ -108,7 +109,7 @@ export function WatchPage() {
       <div className="flex items-center justify-between gap-3 pb-3">
         <button
           type="button"
-          onClick={() => navigate(-1)}
+          onClick={() => (location.key === 'default' ? navigate('/') : navigate(-1))}
           className="inline-flex items-center gap-1.5 rounded-full px-2 py-1.5 text-[13px] font-medium text-yt-muted transition-colors hover:bg-white/10 hover:text-yt-text"
         >
           <ArrowLeft size={16} aria-hidden />

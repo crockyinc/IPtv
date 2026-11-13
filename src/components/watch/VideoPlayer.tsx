@@ -237,6 +237,22 @@ export function VideoPlayer({ channel, onNextChannel, onActiveSourceChange }: Vi
         </div>
       )}
 
+      {/* Unmute hint */}
+      {interactive && isPlaying && isMuted && (
+        <button
+          type="button"
+          data-controls
+          onClick={(event) => {
+            event.stopPropagation();
+            toggleMute();
+          }}
+          className="absolute right-3 top-3 z-20 inline-flex items-center gap-1.5 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-medium text-white ring-1 ring-white/15 backdrop-blur transition-colors hover:bg-black/85"
+        >
+          <VolumeX size={13} aria-hidden />
+          Tap to unmute
+        </button>
+      )}
+
       {/* Failover banner */}
       {showFailover && (
         <div className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-2 rounded-full bg-black/70 px-3 py-1.5 text-[11px] font-medium text-white/90 backdrop-blur">

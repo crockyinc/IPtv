@@ -4,6 +4,7 @@ import { TopBar } from '@/components/TopBar';
 import { Sidebar } from '@/components/Sidebar';
 import { CountryPickerModal } from '@/components/CountryPickerModal';
 import { NoticeToast } from '@/components/Feedback';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { HomePage } from '@/pages/HomePage';
 import { RecentPage } from '@/pages/RecentPage';
 import { WatchPage } from '@/pages/WatchPage';
@@ -98,12 +99,14 @@ export default function App() {
         )}
       >
         <div className="mx-auto w-full max-w-[1800px] px-4 sm:px-6">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/recent" element={<RecentPage />} />
-            <Route path="/watch/:channelId" element={<WatchPage />} />
-            <Route path="*" element={<NotFoundPage />} />
-          </Routes>
+          <ErrorBoundary>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/recent" element={<RecentPage />} />
+              <Route path="/watch/:channelId" element={<WatchPage />} />
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </ErrorBoundary>
           <Footer />
         </div>
       </main>
