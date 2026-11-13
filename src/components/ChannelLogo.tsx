@@ -1,8 +1,21 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Channel } from '@/types/iptv';
+import { useCatalogStore } from '@/store/useCatalogStore';
 import { accentFor, channelInitials, cn, gradientFor } from '@/lib/utils';
 
 type ChannelLike = Pick<Channel, 'id' | 'name' | 'logo'>;
+
+/** How long to wait for a logo host before settling on the initials tile. */
+const LOGO_TIMEOUT_MS = 3_000;
+
+function isCrossOrigin(url: string): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return new URL(url, window.location.href).origin !== window.location.origin;
+  } catch {
+    return true;
+  }
+}
 
 interface ChannelLogoProps {
   channel: ChannelLike;
@@ -13,8 +26,14 @@ interface ChannelLogoProps {
 }
 
 /**
- * Channel logo with a graceful gradient/initials fallback.
- * Broken upstream images (`onError`) degrade to the same fallback.
+ * Channel logo with a gradient/initials fallback that is always rendered first,
+ * so a card never shows an empty box:
+ *
+ *  - images fade in over the fallback once decoded,
+ *  - broken images fall back via `onError`,
+ *  - silent hosts fall back after a 3s timeout (blocked CDNs often hang),
+ *  - when the app is running on the offline snapshot the network is known to be
+ *    restricted, so cross-origin logo hosts are skipped entirely.
  */
 export function ChannelLogo({
   channel,
@@ -22,46 +41,72 @@ export function ChannelLogo({
   imageClassName,
   fallbackClassName,
 }: ChannelLogoProps) {
-  const [failed, setFailed] = useState(false);
-  const logoUrl = channel.logo?.url ?? null;
+  const catalogSource = useCatalogStore((state) => state.catalog?.source);
 
+  const logoUrl = channel.logo?.url ?? null;
+  const remoteBlocked = useMemo(() => {
+    if (!logoUrl) return false;
+    return catalogSource === 'fallback' && isCrossOrigin(logoUrl);
+  }, [logoUrl, catalogSource]);
+
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const [expired, setExpired] = useState(false);
+
+  // Reset when the logo changes (channel cards are reused while paging).
   useEffect(() => {
+    setLoaded(false);
     setFailed(false);
+    setExpired(false);
   }, [logoUrl]);
 
-  if (logoUrl && !failed) {
-    return (
-      <img
-        src={logoUrl}
-        alt=""
-        loading="lazy"
-        decoding="async"
-        referrerPolicy="no-referrer"
-        draggable={false}
-        onError={() => setFailed(true)}
-        className={cn('h-full w-full object-contain', imageClassName)}
-      />
-    );
-  }
+  const showImage = Boolean(logoUrl) && !remoteBlocked && !failed && !expired;
+
+  useEffect(() => {
+    if (!showImage || loaded) return;
+    const timer = setTimeout(() => setExpired(true), LOGO_TIMEOUT_MS);
+    return () => clearTimeout(timer);
+  }, [showImage, loaded, logoUrl]);
 
   return (
-    <span
-      aria-hidden
-      className={cn(
-        'flex h-full w-full flex-col items-center justify-center gap-1 rounded-md bg-gradient-to-br',
-        gradientFor(channel.id || channel.name),
-        className,
+    <span className={cn('relative flex h-full w-full items-center justify-center', className)}>
+      {(!showImage || !loaded) && (
+        <span
+          aria-hidden
+          className={cn(
+            'absolute inset-0 flex flex-col items-center justify-center gap-1 rounded-[inherit] bg-gradient-to-br ring-1 ring-inset ring-white/[0.06]',
+            gradientFor(channel.id || channel.name),
+          )}
+        >
+          <span
+            className={cn(
+              'font-semibold uppercase leading-none tracking-tight',
+              fallbackClassName ?? 'text-2xl',
+            )}
+            style={{ color: accentFor(channel.id || channel.name) }}
+          >
+            {channelInitials(channel.name)}
+          </span>
+        </span>
       )}
-    >
-      <span
-        className={cn(
-          'font-semibold uppercase leading-none tracking-tight',
-          fallbackClassName ?? 'text-2xl',
-        )}
-        style={{ color: accentFor(channel.id || channel.name) }}
-      >
-        {channelInitials(channel.name)}
-      </span>
+
+      {showImage && (
+        <img
+          src={logoUrl!}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+          draggable={false}
+          onLoad={() => setLoaded(true)}
+          onError={() => setFailed(true)}
+          className={cn(
+            'relative z-10 h-full w-full object-contain transition-opacity duration-300',
+            loaded ? 'opacity-100' : 'opacity-0',
+            imageClassName,
+          )}
+        />
+      )}
     </span>
   );
 }

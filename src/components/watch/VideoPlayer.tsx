@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Check,
   Loader2,
@@ -18,6 +19,8 @@ import {
 import type { Channel } from '@/types/iptv';
 import { useHlsPlayer } from '@/hooks/useHlsPlayer';
 import { useAppStore } from '@/store/useAppStore';
+import { useCatalogStore } from '@/store/useCatalogStore';
+import { DEMO_CHANNEL_ID } from '@/lib/demoChannel';
 import { cn, copyText } from '@/lib/utils';
 
 interface VideoPlayerProps {
@@ -26,6 +29,10 @@ interface VideoPlayerProps {
   onNextChannel: () => void;
   /** Reports the manifest currently in use so the info bar can mirror it. */
   onActiveSourceChange?: (url: string | null) => void;
+  /** Restart the (VOD) manifest when it ends — used by the bundled demo feed. */
+  loop?: boolean;
+  /** Renders demo-specific chrome instead of the live indicator. */
+  isDemo?: boolean;
 }
 
 const CONTROLS_HIDE_MS = 2800;
@@ -34,7 +41,15 @@ const CONTROLS_HIDE_MS = 2800;
  * Custom 16:9 HLS player: autoplay-with-failover, quality menu, volume,
  * fullscreen, PiP and a friendly offline overlay.
  */
-export function VideoPlayer({ channel, onNextChannel, onActiveSourceChange }: VideoPlayerProps) {
+export function VideoPlayer({
+  channel,
+  onNextChannel,
+  onActiveSourceChange,
+  loop = false,
+  isDemo = false,
+}: VideoPlayerProps) {
+  const navigate = useNavigate();
+  const catalogSource = useCatalogStore((state) => state.catalog?.source);
   const volume = useAppStore((state) => state.volume);
   const muted = useAppStore((state) => state.muted);
   const setVolume = useAppStore((state) => state.setVolume);
@@ -52,6 +67,7 @@ export function VideoPlayer({ channel, onNextChannel, onActiveSourceChange }: Vi
     onVolumeChange: setVolume,
     onMutedChange: setMuted,
     onStarted: () => addRecentChannel(channel.id),
+    loop,
   });
 
   const [controlsVisible, setControlsVisible] = useState(true);
@@ -324,6 +340,20 @@ export function VideoPlayer({ channel, onNextChannel, onActiveSourceChange }: Vi
               <SkipForward size={15} aria-hidden />
               Try next channel
             </button>
+            {catalogSource === 'fallback' && !isDemo && (
+              <button
+                type="button"
+                data-controls
+                onClick={(event) => {
+                  event.stopPropagation();
+                  navigate(`/watch/${DEMO_CHANNEL_ID}`);
+                }}
+                className="inline-flex items-center gap-2 rounded-full bg-[#3ea6ff]/15 px-4 py-2 text-sm font-medium text-[#9ccfff] ring-1 ring-inset ring-[#3ea6ff]/30 transition-colors hover:bg-[#3ea6ff]/25"
+              >
+                <Play size={14} fill="currentColor" strokeWidth={0} aria-hidden />
+                Play bundled test feed
+              </button>
+            )}
             <button
               type="button"
               data-controls
@@ -384,25 +414,32 @@ export function VideoPlayer({ channel, onNextChannel, onActiveSourceChange }: Vi
               />
             </div>
 
-            {/* LIVE indicator */}
-            <button
-              type="button"
-              onClick={seekToLiveEdge}
-              title={isLive ? 'Jump to the live edge' : 'This feed is a live event'}
-              className={cn(
-                'ml-1.5 inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors',
-                isLive ? 'text-white hover:bg-white/10' : 'text-white/50',
-              )}
-            >
-              <span
+            {/* LIVE / demo indicator */}
+            {isDemo ? (
+              <span className="ml-1.5 inline-flex items-center gap-1.5 rounded bg-white/10 px-1.5 py-1 text-[11px] font-bold uppercase tracking-wide text-white/80">
+                <span className="h-2 w-2 rounded-full bg-[#3ea6ff]" aria-hidden />
+                Demo · looping
+              </span>
+            ) : (
+              <button
+                type="button"
+                onClick={seekToLiveEdge}
+                title={isLive ? 'Jump to the live edge' : 'This feed is not currently live'}
                 className={cn(
-                  'h-2 w-2 rounded-full',
-                  isLive ? 'animate-pulse-live bg-yt-live' : 'bg-white/40',
+                  'ml-1.5 inline-flex items-center gap-1.5 rounded px-1.5 py-1 text-[11px] font-bold uppercase tracking-wide transition-colors',
+                  isLive ? 'text-white hover:bg-white/10' : 'text-white/50',
                 )}
-                aria-hidden
-              />
-              Live
-            </button>
+              >
+                <span
+                  className={cn(
+                    'h-2 w-2 rounded-full',
+                    isLive ? 'animate-pulse-live bg-yt-live' : 'bg-white/40',
+                  )}
+                  aria-hidden
+                />
+                Live
+              </button>
+            )}
 
             <div className="flex-1" />
 

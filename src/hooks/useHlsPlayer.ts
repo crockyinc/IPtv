@@ -34,6 +34,8 @@ export interface UseHlsPlayerOptions {
   onMutedChange: (muted: boolean) => void;
   /** Fired the first time a source actually renders frames. */
   onStarted?: () => void;
+  /** Restart playback when the (VOD) source ends — used by the bundled demo feed. */
+  loop?: boolean;
 }
 
 export interface UseHlsPlayerResult {
@@ -106,6 +108,7 @@ export function useHlsPlayer(options: UseHlsPlayerOptions): UseHlsPlayerResult {
     onVolumeChange,
     onMutedChange,
     onStarted,
+    loop = false,
   } = options;
 
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -175,6 +178,7 @@ export function useHlsPlayer(options: UseHlsPlayerOptions): UseHlsPlayerResult {
 
     setStatus((prev) => (prev === 'error' ? 'loading' : prev === 'playing' ? prev : 'loading'));
     setError(null);
+    video.loop = loop;
 
     const clearTimers = () => {
       if (loadTimer) clearTimeout(loadTimer);

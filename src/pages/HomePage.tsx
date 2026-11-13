@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Globe2, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Clapperboard, Globe2, Play, SearchX, SlidersHorizontal, Sparkles } from 'lucide-react';
 import { ChannelGrid } from '@/components/ChannelGrid';
 import { CategoryChips } from '@/components/CategoryChips';
 import { EmptyState, ErrorState } from '@/components/Feedback';
@@ -12,6 +12,7 @@ import {
   useCountryChannels,
 } from '@/hooks/useCatalog';
 import { useAppStore } from '@/store/useAppStore';
+import { DEMO_CHANNEL_ID, DEMO_POSTER_URL } from '@/lib/demoChannel';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -79,6 +80,43 @@ export function HomePage() {
     <div>
       {!loading && channels.length > 0 && (
         <CategoryChips categories={categories} totalChannels={channels.length} />
+      )}
+
+      {catalog?.source === 'fallback' && (
+        <Link
+          to={`/watch/${DEMO_CHANNEL_ID}`}
+          className="group mt-5 flex flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-gradient-to-r from-white/[0.06] via-white/[0.03] to-transparent transition-colors hover:border-white/20 sm:flex-row"
+        >
+          <div className="relative flex aspect-video w-full shrink-0 items-center justify-center overflow-hidden bg-black sm:w-[248px]">
+            <img
+              src={DEMO_POSTER_URL}
+              alt=""
+              loading="lazy"
+              className="h-full w-full object-cover opacity-90 transition-transform duration-300 group-hover:scale-[1.03]"
+            />
+            <span className="absolute inset-0 grid place-items-center bg-black/25">
+              <span className="grid h-11 w-11 place-items-center rounded-full bg-white/92 text-black shadow-lg">
+                <Play size={18} fill="black" strokeWidth={0} aria-hidden />
+              </span>
+            </span>
+            <span className="absolute bottom-2 left-2 inline-flex items-center gap-1 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white/90 backdrop-blur">
+              10s loop · 2 renditions
+            </span>
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 px-4 py-4 sm:px-5">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#3ea6ff]">
+              <Clapperboard size={12} aria-hidden />
+              Bundled test feed
+            </p>
+            <h2 className="text-[15px] font-semibold text-yt-text">See the player in action</h2>
+            <p className="max-w-xl text-[12.5px] leading-relaxed text-yt-muted">
+              Broadcaster CDNs are blocked on this network, so live channels cannot connect. This
+              multi-bitrate HLS feed ships with AnyStream — quality selector, fullscreen, PiP and
+              keyboard shortcuts all work.
+            </p>
+          </div>
+        </Link>
       )}
 
       <div className="flex flex-wrap items-end justify-between gap-3 pb-5 pt-5">

@@ -12,7 +12,8 @@
     "verify:pipeline": "esbuild scripts/verify-pipeline.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=scripts/.verify/pipeline.mjs --log-level=error && node scripts/.verify/pipeline.mjs",
     "verify:render": "esbuild scripts/verify-render.tsx --bundle --platform=node --format=cjs --packages=external --alias:@=./src --outfile=scripts/.verify/render.cjs --jsx=automatic --log-level=error && node scripts/.verify/render.cjs",
     "verify:fallback": "esbuild scripts/verify-fallback.ts --bundle --platform=node --format=esm --alias:@=./src --outfile=scripts/.verify/fallback.mjs --log-level=error && node scripts/.verify/fallback.mjs",
-    "snapshot": "node scripts/build-fallback-snapshot.mjs"
+    "snapshot": "node scripts/build-fallback-snapshot.mjs",
+    "demo:stream": "node scripts/build-demo-stream.mjs"
   },
   "dependencies": {
     "hls.js": "^1.5.20",
@@ -23,6 +24,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
     "@types/jsdom": "^30.0.0",
     "@types/node": "^26.6.6",
     "@types/react": "^18.3.17",

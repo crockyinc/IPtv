@@ -6,21 +6,23 @@ import { ChannelGrid } from '@/components/ChannelGrid';
 import { EmptyState } from '@/components/Feedback';
 import { useCatalog } from '@/hooks/useCatalog';
 import { useAppStore } from '@/store/useAppStore';
+import { resolveChannel } from '@/lib/demoChannel';
 
 export function RecentPage() {
   const { catalog, status } = useCatalog();
   const recentIds = useAppStore((state) => state.recentChannelIds);
   const clearRecent = useAppStore((state) => state.clearRecentChannels);
+  const countryCode = useAppStore((state) => state.countryCode);
 
   const channels = useMemo<Channel[]>(() => {
     if (!catalog) return [];
     const resolved: Channel[] = [];
     for (const id of recentIds) {
-      const channel = catalog.channelById.get(id);
+      const channel = resolveChannel(catalog, id, countryCode);
       if (channel) resolved.push(channel);
     }
     return resolved;
-  }, [catalog, recentIds]);
+  }, [catalog, recentIds, countryCode]);
 
   const loading = status === 'idle' || (status === 'loading' && !catalog);
 

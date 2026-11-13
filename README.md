@@ -24,6 +24,7 @@ There is **no backend, no build-time data snapshot, no API key and no tracking**
 | Resilience | Primary stream → automatic backup failover → clean "offline / geo-restricted" overlay with Retry and "Try next channel". Broken logos fall back to stylised initials on a gradient. |
 | Offline shell | `public/sw.js` precaches the app shell and stale-while-revalidate caches the iptv-org JSON. Video segments are never intercepted. |
 | Degraded mode | If the live API cannot be reached at all (restricted network, offline, corporate firewall), AnyStream falls back to a bundled snapshot of real iptv-org data and says so in a banner. Retry once the network allows it. |
+| Player self-test | A 10-second, two-rendition HLS feed bundled at `/demo` proves the player end-to-end (quality menu, fullscreen, PiP) on networks where every broadcaster CDN is blocked. Promoted on the home feed while in snapshot mode, or open `/watch/anystream.demo` directly. |
 | Persistence | Country, sidebar state, watch history, volume/mute — all in `localStorage`, all optional. |
 
 ---
@@ -50,6 +51,7 @@ npm run verify:pipeline   # 28-assertion smoke test of the data pipeline
 npm run verify:render     # 31-assertion jsdom render test of the real pages
 npm run verify:fallback   # 15-assertion test of live -> offline-snapshot handling
 npm run snapshot          # regenerate public/fallback/*.json from upstream data
+npm run demo:stream       # re-render public/demo (10s HLS test feed, needs ffmpeg)
 ```
 
 Optional: point the app at a self-hosted mirror of the JSON documents (defaults to
@@ -69,6 +71,7 @@ index.html                  Document shell, theme bootstrap, manifest links
 public/
   sw.js                     Service worker: app shell + iptv-org JSON caching
   fallback/*.json           Offline snapshot (same shape as the public API)
+  demo/                     Bundled HLS test feed (master + 720p/360p) and poster
   favicon.svg               Brand mark
   manifest.webmanifest      PWA manifest
   icons/                    Install icons (192/512/maskable)
@@ -101,8 +104,10 @@ src/
   lib/
     utils.ts                Flags, initials, gradients, clipboard, debounce
     storage.ts              Safe localStorage helpers
+    demoChannel.ts          The bundled test feed as a synthetic Channel
 scripts/
   build-fallback-snapshot.mjs  Regenerates public/fallback from upstream CSV/M3U
+  build-demo-stream.mjs     Renders the bundled HLS test feed with ffmpeg
   verify-pipeline.ts        Node smoke test for the join/filter rules
   verify-render.tsx         jsdom test that mounts the real pages
   verify-fallback.ts        Live -> snapshot fallback test with a stubbed network
@@ -203,7 +208,18 @@ Any static host works. Because routing uses the History API, configure a single-
 - **Nginx** — `try_files $uri $uri/ /index.html;`
 
 Ship the whole `dist/` folder: it contains `/fallback/*.json`, which is what keeps the app useful
-when the public API is blocked from the visitor's network.
+when the public API is blocked from the visitor's network, and `/demo/`, the bundled HLS test feed.
+
+Media MIME types matter for Safari's native HLS path — make sure your server maps
+`application/vnd.apple.mpegurl → m3u8` and `video/mp2t → ts` (nginx and Netlify do this by default).
+
+### Thumbnails
+
+Channel logos come from third-party hosts referenced by iptv-org, so they are treated as optional:
+every card paints a gradient/initials tile immediately, the image fades in only once decoded, a
+broken logo falls back on `onError`, a silent host falls back after 3 s, and while running on the
+offline snapshot cross-origin logo hosts are skipped entirely (same-origin artwork such as the demo
+poster still loads). No card ever renders an empty box.
 
 Serve over **HTTPS**: browsers block HTTP HLS manifests on secure pages, and the clipboard,
 fullscreen and picture-in-picture APIs require a secure context.

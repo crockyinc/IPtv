@@ -20,6 +20,8 @@ import { WatchPage } from '@/pages/WatchPage';
 import { NotFoundPage } from '@/pages/NotFoundPage';
 import { CountryPickerModal } from '@/components/CountryPickerModal';
 import { DataSourceBanner } from '@/components/DataSourceBanner';
+import { ChannelCard } from '@/components/ChannelCard';
+import { DEMO_CHANNEL_ID } from '@/lib/demoChannel';
 
 /* ------------------------------- fixtures -------------------------------- */
 
@@ -175,6 +177,17 @@ expect('picker: choosing a country persists it', (() => {
   return useAppStore.getState().countryCode === 'JP' && window.localStorage.getItem('anystream_country') === 'JP';
 })());
 
+/* -------------------------------- demo feed ------------------------------ */
+
+const demoHtml = renderWith(
+  <WatchPage />,
+  `/watch/${DEMO_CHANNEL_ID}`,
+  '/watch/:channelId',
+);
+expectIncludes('demo: renders the bundled channel', demoHtml, 'AnyStream Demo Feed');
+expectIncludes('demo: points at the local manifest', demoHtml, '/demo/hls/master.m3u8');
+expectIncludes('demo: shows the source panel', demoHtml, 'Active source');
+
 /* ------------------------------ data source ------------------------------ */
 
 const liveBannerHtml = renderWith(<DataSourceBanner />, '/');
@@ -189,7 +202,32 @@ const fallbackBannerHtml = renderWith(<DataSourceBanner />, '/');
 expectIncludes('banner: explains the snapshot', fallbackBannerHtml, 'Offline snapshot');
 expectIncludes('banner: shows the failure reason', fallbackBannerHtml, 'Failed to fetch');
 expectIncludes('banner: offers a live retry', fallbackBannerHtml, 'Retry live data');
+act(() =>
+  useCatalogStore.setState({ catalog: { ...catalog, source: 'fallback', liveError: 'Failed to fetch' } }),
+);
+const degradedHomeHtml = renderWith(<HomePage />, '/');
+expectIncludes('home: promotes the bundled feed on the snapshot', degradedHomeHtml, 'See the player in action');
+
+/* --------------------------- logo resolution ----------------------------- */
+
+const remoteLogoChannel = catalog.channels[0]!;
+const blockedHtml = renderWith(<ChannelCard channel={remoteLogoChannel} />, '/');
+expect(
+  'logo: skips third-party hosts when the network is known restricted',
+  !blockedHtml.includes('https://example.com/ch0.png'),
+);
+expect('logo: renders initials instead', blockedHtml.includes('TN'), blockedHtml.slice(0, 400));
+
+const localLogoChannel = {
+  ...remoteLogoChannel,
+  logo: { url: '/demo/poster.jpg', format: 'jpg' as const, width: 1280, height: 720, isSquare: false },
+};
+const localHtml = renderWith(<ChannelCard channel={localLogoChannel} />, '/');
+expect('logo: keeps same-origin images', localHtml.includes('/demo/poster.jpg'));
+
 act(() => useCatalogStore.setState({ catalog }));
+const liveHomeHtml = renderWith(<HomePage />, '/');
+expect('home: hides the test feed while live', !liveHomeHtml.includes('See the player in action'));
 
 /* --------------------------------- 404 ----------------------------------- */
 

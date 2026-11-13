@@ -8,6 +8,7 @@ import { UpNextList } from '@/components/watch/UpNextList';
 import { EmptyState, ErrorState } from '@/components/Feedback';
 import { useCatalog } from '@/hooks/useCatalog';
 import { useAppStore } from '@/store/useAppStore';
+import { isDemoChannelId, resolveChannel } from '@/lib/demoChannel';
 
 const UP_NEXT_LIMIT = 14;
 
@@ -17,12 +18,14 @@ export function WatchPage() {
   const location = useLocation();
   const { catalog, status, error, retry } = useCatalog();
   const addRecentChannel = useAppStore((state) => state.addRecentChannel);
+  const countryCode = useAppStore((state) => state.countryCode);
   const [activeSourceUrl, setActiveSourceUrl] = useState<string | null>(null);
 
   const channel: Channel | undefined = useMemo(
-    () => (catalog && channelId ? catalog.channelById.get(channelId) : undefined),
-    [catalog, channelId],
+    () => resolveChannel(catalog, channelId, countryCode),
+    [catalog, channelId, countryCode],
   );
+  const isDemo = isDemoChannelId(channel?.id);
 
   useEffect(() => {
     if (channel) addRecentChannel(channel.id);
@@ -36,6 +39,13 @@ export function WatchPage() {
 
   const upNext = useMemo(() => {
     if (!catalog || !channel) return [];
+
+    // The demo feed has no real region: surf the selected country instead.
+    if (isDemoChannelId(channel.id)) {
+      const local = countryCode ? catalog.channelsByCountry.get(countryCode) ?? [] : [];
+      return local.slice(0, UP_NEXT_LIMIT);
+    }
+
     const pool = catalog.channelsByCountry.get(channel.countryCode) ?? [];
     const categoryId = channel.primaryCategoryId;
 
@@ -48,7 +58,7 @@ export function WatchPage() {
     }
 
     return [...sameCategory, ...otherCategory].slice(0, UP_NEXT_LIMIT);
-  }, [catalog, channel]);
+  }, [catalog, channel, countryCode]);
 
   const nextChannel = upNext[0] ?? null;
 
@@ -119,7 +129,7 @@ export function WatchPage() {
           to="/"
           className="text-[11px] uppercase tracking-widest text-yt-dim transition-colors hover:text-yt-muted"
         >
-          {channel.countryName} · Live TV
+          {isDemo ? 'Bundled test feed · loops locally' : `${channel.countryName} · Live TV`}
         </Link>
       </div>
 
@@ -130,6 +140,8 @@ export function WatchPage() {
             channel={channel}
             onNextChannel={goToNextChannel}
             onActiveSourceChange={handleActiveSourceChange}
+            loop={isDemo}
+            isDemo={isDemo}
           />
           <ChannelInfoBar channel={channel} activeStreamUrl={activeSourceUrl} />
 
@@ -137,7 +149,11 @@ export function WatchPage() {
             <UpNextList
               channels={upNext}
               title="Channel surfing"
-              subtitle={`More live channels from ${channel.countryName}`}
+              subtitle={
+                isDemo
+                  ? 'Live channels from your region'
+                  : `More live channels from ${channel.countryName}`
+              }
             />
           </div>
         </div>
@@ -146,7 +162,11 @@ export function WatchPage() {
           <UpNextList
             channels={upNext}
             title="Up next"
-            subtitle={`More live channels from ${channel.countryName}`}
+            subtitle={
+              isDemo
+                ? 'Live channels from your region'
+                : `More live channels from ${channel.countryName}`
+            }
           />
         </aside>
       </div>
