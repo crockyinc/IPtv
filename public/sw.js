@@ -68,7 +68,10 @@ async function staleWhileRevalidate(request, cacheName) {
   const network = fetch(request)
     .then((response) => {
       if (response && response.ok) {
-        void cache.put(request, response.clone()).then(() => trimCache(cacheName, MAX_DATA_ENTRIES));
+        void cache
+          .put(request, response.clone())
+          .then(() => trimCache(cacheName, MAX_DATA_ENTRIES))
+          .catch(() => undefined);
       }
       return response;
     })

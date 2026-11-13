@@ -46,6 +46,7 @@ npm run dev        # http://localhost:5173
 npm run build      # typecheck + production build into dist/
 npm run preview    # serve the production build
 npm run verify:pipeline   # 28-assertion smoke test of the data pipeline
+npm run verify:render     # 27-assertion jsdom render test of the real pages
 ```
 
 Optional: point the app at a self-hosted mirror of the JSON documents (defaults to

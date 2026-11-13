@@ -216,7 +216,20 @@ export function CountryPickerModal() {
 
           {!loading && status === 'ready' && filtered.length === 0 && (
             <div className="px-3 py-12 text-center text-sm text-yt-muted">
-              No country matches “{query}”. Try another name or ISO code.
+              {query.trim()
+                ? `No country matches “${query.trim()}”. Try another name or ISO code.`
+                : 'No playable channels were found in the catalogue. The upstream dataset may be temporarily unavailable.'}
+              {!query.trim() && (
+                <div className="mt-4">
+                  <button
+                    type="button"
+                    onClick={() => void ensureLoaded(true)}
+                    className="rounded-full bg-yt-text px-4 py-2 text-sm font-semibold text-yt-bg transition-opacity hover:opacity-90"
+                  >
+                    Reload catalogue
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

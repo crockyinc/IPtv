@@ -118,6 +118,11 @@ export function TopBar() {
                 <X size={18} aria-hidden />
               </button>
             )}
+            {!searchQuery && (
+              <kbd className="mr-2 hidden h-6 min-w-6 items-center justify-center rounded border border-white/15 px-1.5 text-[10px] font-medium text-yt-dim lg:flex">
+                /
+              </kbd>
+            )}
             <button
               type="submit"
               aria-label="Search"

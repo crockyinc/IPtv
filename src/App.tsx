@@ -14,6 +14,32 @@ import { useIsDesktop } from '@/hooks/useMediaQuery';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
 
+/** Keeps the document title in sync with the active route and channel. */
+function DocumentTitle() {
+  const { catalog } = useCatalog();
+  const location = useLocation();
+  const countryCode = useAppStore((state) => state.countryCode);
+
+  useEffect(() => {
+    if (location.pathname.startsWith('/watch/')) {
+      const id = location.pathname.split('/')[2];
+      const name = id ? catalog?.channelById.get(id)?.name : null;
+      document.title = name ? `${name} — AnyStream live` : 'AnyStream';
+      return;
+    }
+    if (location.pathname === '/recent') {
+      document.title = 'Recently watched — AnyStream';
+      return;
+    }
+    const country = countryCode ? catalog?.countryByCode.get(countryCode) : null;
+    document.title = country
+      ? `AnyStream — Live TV from ${country.name}`
+      : 'AnyStream — Live TV from everywhere';
+  }, [location.pathname, catalog, countryCode]);
+
+  return null;
+}
+
 /** Resets scroll on route changes (the app is a single scroll container). */
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -89,6 +115,7 @@ export default function App() {
   return (
     <div className="min-h-[100dvh] bg-yt-bg">
       <ScrollToTop />
+      <DocumentTitle />
       <TopBar />
       <Sidebar />
 

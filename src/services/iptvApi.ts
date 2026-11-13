@@ -586,6 +586,44 @@ export function clearCatalogCache(): void {
   catalogPromise = null;
 }
 
+/**
+ * Curated display order for the chip bar and sidebar. Categories that live here
+ * always appear first (in this order); anything else follows by channel volume.
+ */
+const CATEGORY_PRIORITY = [
+  'news',
+  'sports',
+  'entertainment',
+  'music',
+  'kids',
+  'movies',
+  'documentary',
+  'comedy',
+  'series',
+  'general',
+  'culture',
+  'lifestyle',
+  'education',
+  'family',
+  'science',
+  'tech',
+  'business',
+  'weather',
+  'travel',
+  'religion',
+  'shop',
+  'auto',
+  'cooking',
+  'quiz',
+  'animation',
+  'outdoor',
+  'classic',
+] as const;
+
+const CATEGORY_ORDER = new Map<string, number>(
+  CATEGORY_PRIORITY.map((id, index) => [id, index] as const),
+);
+
 /** Categories ordered for a country: curated first, then by channel volume. */
 export function getCategoriesForCountry(
   catalog: Catalog,
@@ -594,8 +632,15 @@ export function getCategoriesForCountry(
   const counts = countryCode ? catalog.categoryCountsByCountry.get(countryCode) : null;
   if (!counts) return [];
 
+  const rank = (id: string) => CATEGORY_ORDER.get(id) ?? Number.MAX_SAFE_INTEGER;
+
   return catalog.categories
     .map((category) => ({ ...category, channelCount: counts.get(category.id) ?? 0 }))
     .filter((category) => category.channelCount > 0)
-    .sort((a, b) => b.channelCount - a.channelCount || a.name.localeCompare(b.name, 'en'));
+    .sort(
+      (a, b) =>
+        rank(a.id) - rank(b.id) ||
+        b.channelCount - a.channelCount ||
+        a.name.localeCompare(b.name, 'en'),
+    );
 }
